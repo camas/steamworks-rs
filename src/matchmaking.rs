@@ -208,6 +208,36 @@ impl<Manager> Matchmaking<Manager> {
         }
     }
 
+    /// Gets the details of a game server set in a lobby.
+    ///
+    /// Either the IP/Port or the Steam ID of the game server has to be valid, depending on how you want the clients to be able to connect.
+    pub fn lobby_game_server(&self, lobby: LobbyId) -> Option<LobbyGameServerResponse> {
+        unsafe {
+            let mut ip = 0;
+            let mut port = 0;
+            let mut steam_id = 0;
+            if sys::SteamAPI_ISteamMatchmaking_GetLobbyGameServer(
+                self.mm,
+                lobby.0,
+                &mut ip,
+                &mut port,
+                &mut steam_id as *mut _ as *mut _,
+            ) {
+                Some(LobbyGameServerResponse {
+                    ip: if ip == 0 { None } else { Some(ip) },
+                    port: if port == 0 { None } else { Some(port) },
+                    steam_id: if steam_id == 0 {
+                        None
+                    } else {
+                        Some(SteamId(steam_id))
+                    },
+                })
+            } else {
+                None
+            }
+        }
+    }
+
     /// Sets whether or not a lobby is joinable by other players. This always defaults to enabled
     /// for a new lobby.
     ///
@@ -220,6 +250,14 @@ impl<Manager> Matchmaking<Manager> {
     pub fn set_lobby_joinable(&self, lobby: LobbyId, joinable: bool) -> bool {
         unsafe { sys::SteamAPI_ISteamMatchmaking_SetLobbyJoinable(self.mm, lobby.0, joinable) }
     }
+}
+
+/// Response from lobby_game_server
+#[derive(Clone, Debug)]
+pub struct LobbyGameServerResponse {
+    pub ip: Option<u32>,
+    pub port: Option<u16>,
+    pub steam_id: Option<SteamId>,
 }
 
 /// Flags describing how a users lobby state has changed. This is provided from `LobbyChatUpdate`.
