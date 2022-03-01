@@ -31,7 +31,7 @@ pub enum SendType {
     ReliableWithBuffering,
 }
 
-impl <Manager> Networking<Manager> {
+impl<Manager> Networking<Manager> {
     /// Accepts incoming packets from the given user
     ///
     /// Should only be called in response to a `P2PSessionRequest`.
@@ -50,7 +50,13 @@ impl <Manager> Networking<Manager> {
 
     /// Sends a packet to the start user starting the
     /// connection if it isn't started already
-    pub fn send_p2p_packet(&self, remote: SteamId, send_type: SendType, data: &[u8]) -> bool {
+    pub fn send_p2p_packet(
+        &self,
+        remote: SteamId,
+        send_type: SendType,
+        data: &[u8],
+        channel: i32,
+    ) -> bool {
         unsafe {
             let send_type = match send_type {
                 SendType::Unreliable => sys::EP2PSend::k_EP2PSendUnreliable,
@@ -58,7 +64,14 @@ impl <Manager> Networking<Manager> {
                 SendType::Reliable => sys::EP2PSend::k_EP2PSendReliable,
                 SendType::ReliableWithBuffering => sys::EP2PSend::k_EP2PSendReliableWithBuffering,
             };
-            sys::SteamAPI_ISteamNetworking_SendP2PPacket(self.net, remote.0, data.as_ptr() as *const _, data.len() as u32, send_type, 0)
+            sys::SteamAPI_ISteamNetworking_SendP2PPacket(
+                self.net,
+                remote.0,
+                data.as_ptr() as *const _,
+                data.len() as u32,
+                send_type,
+                channel,
+            )
         }
     }
 
@@ -81,11 +94,18 @@ impl <Manager> Networking<Manager> {
     ///
     /// Returns the steam id of the sender and the size of the
     /// packet.
-    pub fn read_p2p_packet(&self, buf: &mut [u8]) -> Option<(SteamId, usize)> {
+    pub fn read_p2p_packet(&self, buf: &mut [u8], channel: i32) -> Option<(SteamId, usize)> {
         unsafe {
             let mut size = 0;
             let mut remote = 0;
-            if sys::SteamAPI_ISteamNetworking_ReadP2PPacket(self.net, buf.as_mut_ptr() as *mut _, buf.len() as _, &mut size, &mut remote as *mut _ as *mut _, 0) {
+            if sys::SteamAPI_ISteamNetworking_ReadP2PPacket(
+                self.net,
+                buf.as_mut_ptr() as *mut _,
+                buf.len() as _,
+                &mut size,
+                &mut remote as *mut _ as *mut _,
+                channel,
+            ) {
                 Some((SteamId(remote), size as usize))
             } else {
                 None
